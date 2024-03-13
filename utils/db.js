@@ -1,34 +1,30 @@
-import dbClient from './utils/db';
+// utils/db.js
 
-const waitConnection = () => {
-    return new Promise((resolve, reject) => {
-        let i = 0;
-        const repeatFct = async () => {
-            await setTimeout(() => {
-                i += 1;
-                if (i >= 10) {
-                    reject(new Error('Connection timeout'));
-                }
-                else if(!dbClient.isAlive()) {
-                    repeatFct();
-                }
-                else {
-                    resolve();
-                }
-            }, 1000);
-        };
-        repeatFct();
-    });
-};
+import { MongoClient } from 'mongodb';
 
-(async () => {
-    try {
-        console.log(dbClient.isAlive());
-        await waitConnection();
-        console.log(dbClient.isAlive());
-        console.log(await dbClient.nbUsers());
-        console.log(await dbClient.nbFiles());
-    } catch (error) {
-        console.error('An error occurred:', error);
+class DBClient {
+    constructor() {
+        const host = process.env.DB_HOST || 'localhost';
+        const port = process.env.DB_PORT || 27017;
+        const database = process.env.DB_DATABASE || 'files_manager';
+        this.client = new MongoClient(`mongodb://${host}:${port}`, { useUnifiedTopology: true });
+        this.client.connect();
+        this.db = this.client.db(database);
     }
-})();
+
+    isAlive() {
+        return !!this.client && !!this.client.topology && this.client.topology.isConnected();
+    }
+
+    async nbUsers() {
+        return this.db.collection('users').countDocuments();
+    }
+
+    async nbFiles() {
+        return this.db.collection('files').countDocuments();
+    }
+}
+
+const dbClient = new DBClient();
+
+export default dbClient;
